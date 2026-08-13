@@ -137,10 +137,13 @@ app.get('/api/books', async (req, res) => {
     const apiBooks = gutendexRes.data.results;
 
     // Fetch local overrides (e.g. books that are borrowed)
-    const localBooks = await Book.findAll({
-      where: { id: { [Op.in]: apiBooks.map(b => b.id) } },
-      include: [{ model: User, as: 'borrower', attributes: ['id', 'username'] }]
-    });
+    let localBooks = [];
+    if (apiBooks.length > 0) {
+      localBooks = await Book.findAll({
+        where: { id: { [Op.in]: apiBooks.map(b => b.id) } },
+        include: [{ model: User, as: 'borrower', attributes: ['id', 'username'] }]
+      });
+    }
 
     const localBookMap = {};
     localBooks.forEach(lb => {

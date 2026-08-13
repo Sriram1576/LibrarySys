@@ -77,7 +77,7 @@ const Books = ({ user }) => {
       await axios.patch(`http://localhost:5000/api/books/${id}/${action}`, {}, getHeaders());
       fetchBooks();
     } catch (error) {
-      alert(error.response?.data?.message || `Error ${action} book`);
+      alert(error.response?.data?.message || `Server unavailable: Cannot ${action} book in Demo Mode.`);
     }
   };
 
