@@ -9,22 +9,33 @@ const Books = ({ user }) => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newBook, setNewBook] = useState({ title: '', author: '', genre: 'General' });
   const [searchQuery, setSearchQuery] = useState('');
+  const [nextPage, setNextPage] = useState(null);
+  const [prevPage, setPrevPage] = useState(null);
 
   const getHeaders = () => ({
     headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
   });
 
-  const fetchBooks = async (query = '') => {
+  const fetchBooks = async (query = '', page = null) => {
     try {
       setLoading(true);
-      const response = await axios.get(`http://localhost:5000/api/books?search=${encodeURIComponent(query)}`, getHeaders());
-      setBooks(response.data);
+      
+      let backendUrl = `http://localhost:5000/api/books?search=${encodeURIComponent(query)}`;
+      if (page) backendUrl += `&page=${encodeURIComponent(page)}`;
+      
+      const response = await axios.get(backendUrl, getHeaders());
+      setBooks(response.data.results);
+      setNextPage(response.data.next);
+      setPrevPage(response.data.previous);
     } catch (error) {
       console.warn('Backend unavailable, falling back to direct Gutendex API...', error);
       try {
-        const endpoint = query 
-          ? `https://gutendex.com/books/?search=${encodeURIComponent(query)}`
-          : `https://gutendex.com/books/`;
+        let endpoint = 'https://gutendex.com/books/';
+        const params = [];
+        if (query) params.push(`search=${encodeURIComponent(query)}`);
+        if (page) params.push(`page=${encodeURIComponent(page)}`);
+        if (params.length > 0) endpoint += `?${params.join('&')}`;
+
         const gutendexRes = await axios.get(endpoint);
         const formattedBooks = (gutendexRes.data?.results || []).map(book => ({
           _id: book.id,
@@ -35,6 +46,11 @@ const Books = ({ user }) => {
           dueDate: null
         }));
         setBooks(formattedBooks);
+        
+        const nextUrl = gutendexRes.data?.next;
+        const prevUrl = gutendexRes.data?.previous;
+        setNextPage(nextUrl ? new URL(nextUrl).searchParams.get('page') : null);
+        setPrevPage(prevUrl ? new URL(prevUrl).searchParams.get('page') : null);
       } catch (fallbackError) {
         console.error('Fallback Gutendex fetch failed', fallbackError);
       }
@@ -193,6 +209,23 @@ const Books = ({ user }) => {
             )}
           </tbody>
         </table>
+      </div>
+      
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem' }}>
+        <button 
+          className="btn btn-outline" 
+          onClick={() => fetchBooks(searchQuery, prevPage)}
+          disabled={!prevPage || loading}
+        >
+          Previous Page
+        </button>
+        <button 
+          className="btn btn-outline" 
+          onClick={() => fetchBooks(searchQuery, nextPage)}
+          disabled={!nextPage || loading}
+        >
+          Next Page
+        </button>
       </div>
     </motion.div>
   );

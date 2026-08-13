@@ -132,14 +132,19 @@ app.get('/api/users', auth, adminOnly, async (req, res) => {
 // --- Book Routes ---
 app.get('/api/books', async (req, res) => {
   try {
-    const { search } = req.query;
-    const endpoint = search 
-      ? `https://gutendex.com/books/?search=${encodeURIComponent(search)}`
-      : `https://gutendex.com/books/`;
+    const { search, page } = req.query;
+    
+    let endpoint = 'https://gutendex.com/books/';
+    const params = [];
+    if (search) params.push(`search=${encodeURIComponent(search)}`);
+    if (page) params.push(`page=${encodeURIComponent(page)}`);
+    if (params.length > 0) endpoint += `?${params.join('&')}`;
 
     // Fetch from Gutendex
     const gutendexRes = await axios.get(endpoint);
-    const apiBooks = gutendexRes.data.results;
+    const apiBooks = gutendexRes.data.results || [];
+    const nextUrl = gutendexRes.data.next;
+    const prevUrl = gutendexRes.data.previous;
 
     // Fetch local overrides (e.g. books that are borrowed)
     let localBooks = [];
@@ -169,7 +174,11 @@ app.get('/api/books', async (req, res) => {
       };
     });
 
-    res.json(formattedBooks);
+    res.json({
+      results: formattedBooks,
+      next: nextUrl ? new URL(nextUrl).searchParams.get('page') : null,
+      previous: prevUrl ? new URL(prevUrl).searchParams.get('page') : null
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error', error: err.message });
