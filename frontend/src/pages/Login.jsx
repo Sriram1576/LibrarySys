@@ -16,19 +16,17 @@ const Login = ({ setAuthUser }) => {
     setError('');
     
     try {
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const payload = isLogin ? { username, password } : { username, password, role };
+      // Mocking authentication for GitHub Pages deployment
+      const mockUser = { id: 1, username: username || 'admin', role: role || 'admin', fines: 0 };
+      const mockToken = 'mock-jwt-token-for-static-site';
       
-      const res = await axios.post(`http://localhost:5000${endpoint}`, payload);
-      
-      // Save token & user
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
-      setAuthUser(res.data.user);
+      localStorage.setItem('token', mockToken);
+      localStorage.setItem('user', JSON.stringify(mockUser));
+      setAuthUser(mockUser);
       
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.message || 'Authentication failed');
+      setError('Authentication failed');
     }
   };
 
