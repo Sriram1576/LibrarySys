@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import { LayoutDashboard, Library, Users, Settings as SettingsIcon, Bell, Search, LogOut } from 'lucide-react';
 import Books from './pages/Books';
 import Login from './pages/Login';
