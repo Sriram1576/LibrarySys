@@ -76,12 +76,15 @@ const adminOnly = (req, res, next) => {
 // --- Auth Routes ---
 app.post('/api/auth/register', async (req, res) => {
   try {
-    const { username, password, role } = req.body;
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ message: 'Username and password required' });
+    
     let user = await User.findOne({ where: { username } });
     if (user) return res.status(400).json({ message: 'User already exists' });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    user = await User.create({ username, password: hashedPassword, role: role || 'student' });
+    // Security Fix: Prevent mass assignment privilege escalation by hardcoding 'student'
+    user = await User.create({ username, password: hashedPassword, role: 'student' });
     
     const token = jwt.sign({ id: user.id, role: user.role, username: user.username }, JWT_SECRET, { expiresIn: '1d' });
     res.json({ token, user: { id: user.id, username: user.username, role: user.role } });
@@ -93,6 +96,8 @@ app.post('/api/auth/register', async (req, res) => {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ message: 'Username and password required' });
+    
     const user = await User.findOne({ where: { username } });
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
 
@@ -183,19 +188,25 @@ app.get('/api/books/stats', async (req, res) => {
 app.patch('/api/books/:id/borrow', auth, async (req, res) => {
   try {
     const bookId = parseInt(req.params.id);
+    if (isNaN(bookId)) return res.status(400).json({ message: 'Invalid book ID' });
+    
     let book = await Book.findByPk(bookId);
 
-    // If it doesn't exist locally, fetch from Gutendex and create it
+    // If it doesn't exist locally, fetch from Gutendex and create it safely to avoid race conditions
     if (!book) {
       const gutendexRes = await axios.get(`https://gutendex.com/books/${bookId}`);
       const apiBook = gutendexRes.data;
-      book = await Book.create({
-        id: apiBook.id,
-        title: apiBook.title,
-        author: apiBook.authors && apiBook.authors.length > 0 ? apiBook.authors[0].name : 'Unknown Author',
-        genre: apiBook.subjects && apiBook.subjects.length > 0 ? apiBook.subjects[0] : 'General',
-        status: 'Available'
+      
+      const [newOrFoundBook] = await Book.findOrCreate({
+        where: { id: apiBook.id },
+        defaults: {
+          title: apiBook.title,
+          author: apiBook.authors && apiBook.authors.length > 0 ? apiBook.authors[0].name : 'Unknown Author',
+          genre: apiBook.subjects && apiBook.subjects.length > 0 ? apiBook.subjects[0] : 'General',
+          status: 'Available'
+        }
       });
+      book = newOrFoundBook;
     }
 
     if (book.status === 'Borrowed') return res.status(400).json({ message: 'Book not available' });
@@ -219,6 +230,11 @@ app.patch('/api/books/:id/return', auth, async (req, res) => {
   try {
     const book = await Book.findByPk(req.params.id);
     if (!book || book.status === 'Available') return res.status(400).json({ message: 'Book already available' });
+    
+    // Security Fix: Prevent unauthorized returns
+    if (book.borrowedBy !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Not authorized to return this book' });
+    }
 
     if (book.dueDate && new Date() > book.dueDate) {
       const diffTime = Math.abs(new Date() - book.dueDate);
@@ -226,7 +242,8 @@ app.patch('/api/books/:id/return', auth, async (req, res) => {
       const fineAmount = diffDays * FINE_PER_DAY;
       
       const user = await User.findByPk(book.borrowedBy);
-      await user.update({ fines: user.fines + fineAmount });
+      // Null-check to prevent unhandled crash if user is deleted
+      if (user) await user.update({ fines: user.fines + fineAmount });
     }
 
     await book.update({
