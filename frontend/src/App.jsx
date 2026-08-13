@@ -7,35 +7,43 @@ import Members from './pages/Members';
 import Settings from './pages/Settings';
 import axios from 'axios';
 
-// Dashboard Overview Component
-const Dashboard = ({ user }) => (
-// ... (I need to be careful with replace_file_content to not lose lines. I will use the exact lines.)
-  <div className="page-content">
-    <h2 style={{ marginBottom: '2rem' }}>Welcome back, {user?.username}</h2>
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
-      <div className="card">
-        <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Total Books</h3>
-        <p style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem' }}>--</p>
-      </div>
-      <div className="card">
-        <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Books Borrowed</h3>
-        <p style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem' }}>--</p>
-      </div>
-      <div className="card">
-        <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Active Fines</h3>
-        <p style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem', color: 'var(--danger-color)' }}>
-          ${user?.fines || 0}
-        </p>
-      </div>
-      <div className="card">
-        <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Role</h3>
-        <p style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem', textTransform: 'capitalize' }}>
-          {user?.role || 'Guest'}
-        </p>
+const Dashboard = ({ user }) => {
+  const [totalBooks, setTotalBooks] = useState('--');
+
+  useEffect(() => {
+    axios.get('https://gutendex.com/books/')
+      .then(res => setTotalBooks(res.data.count.toLocaleString()))
+      .catch(() => setTotalBooks('Error'));
+  }, []);
+
+  return (
+    <div className="page-content">
+      <h2 style={{ marginBottom: '2rem' }}>Welcome back, {user?.username}</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
+        <div className="card">
+          <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Total Books</h3>
+          <p style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem' }}>{totalBooks}</p>
+        </div>
+        <div className="card">
+          <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Books Borrowed</h3>
+          <p style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem' }}>--</p>
+        </div>
+        <div className="card">
+          <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Active Fines</h3>
+          <p style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem', color: 'var(--danger-color)' }}>
+            ${user?.fines || 0}
+          </p>
+        </div>
+        <div className="card">
+          <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Role</h3>
+          <p style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem', textTransform: 'capitalize' }}>
+            {user?.role || 'Guest'}
+          </p>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 const Sidebar = ({ setAuthUser }) => {
   const location = useLocation();
