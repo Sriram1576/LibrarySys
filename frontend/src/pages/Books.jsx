@@ -17,21 +17,8 @@ const Books = ({ user }) => {
   const fetchBooks = async (query = '') => {
     try {
       setLoading(true);
-      const endpoint = query 
-        ? `https://gutendex.com/books/?search=${encodeURIComponent(query)}`
-        : `https://gutendex.com/books/`;
-      const response = await axios.get(endpoint);
-      
-      const formattedBooks = response.data.results.map(book => ({
-        _id: book.id,
-        title: book.title,
-        author: book.authors && book.authors.length > 0 ? book.authors[0].name : 'Unknown Author',
-        status: 'Available', // Gutendex public domain books are always available
-        borrowedBy: null,
-        dueDate: null
-      }));
-      
-      setBooks(formattedBooks);
+      const response = await axios.get(`http://localhost:5000/api/books?search=${encodeURIComponent(query)}`, getHeaders());
+      setBooks(response.data);
     } catch (error) {
       console.error('Error fetching books', error);
     } finally {

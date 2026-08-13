@@ -4,6 +4,7 @@ const cors = require('cors');
 const { Sequelize, DataTypes, Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const axios = require('axios');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -14,7 +15,7 @@ const FINE_PER_DAY = 2; // $2 per day late
 app.use(cors());
 app.use(express.json());
 
-// SQLite Connection via Sequelize (Stores data locally in library.sqlite)
+// SQLite Connection via Sequelize
 const sequelize = new Sequelize({
   dialect: 'sqlite',
   storage: './library.sqlite',
@@ -30,6 +31,7 @@ const User = sequelize.define('User', {
 });
 
 const Book = sequelize.define('Book', {
+  id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: false },
   title: { type: DataTypes.STRING, allowNull: false },
   author: { type: DataTypes.STRING, allowNull: false },
   genre: { type: DataTypes.STRING, defaultValue: 'General' },
@@ -43,7 +45,7 @@ User.hasMany(Book, { foreignKey: 'borrowedBy', as: 'borrowedBooks' });
 Book.belongsTo(User, { foreignKey: 'borrowedBy', as: 'borrower' });
 
 // Sync DB and Seed Admin
-sequelize.sync().then(async () => {
+sequelize.sync({ alter: true }).then(async () => {
   console.log('SQLite Database synced successfully.');
   const adminExists = await User.findOne({ where: { role: 'admin' } });
   if (!adminExists) {
@@ -126,50 +128,50 @@ app.get('/api/users', auth, adminOnly, async (req, res) => {
 app.get('/api/books', async (req, res) => {
   try {
     const { search } = req.query;
-    let queryOptions = { include: [{ model: User, as: 'borrower', attributes: ['id', 'username'] }] };
-    
-    if (search) {
-      queryOptions.where = {
-        [Op.or]: [
-          { title: { [Op.like]: `%${search}%` } },
-          { author: { [Op.like]: `%${search}%` } },
-          { genre: { [Op.like]: `%${search}%` } }
-        ]
-      };
-    }
-    const books = await Book.findAll(queryOptions);
-    // Format to match old mongoose output for frontend compatibility
-    const formattedBooks = books.map(b => {
-      const bookData = b.toJSON();
+    const endpoint = search 
+      ? `https://gutendex.com/books/?search=${encodeURIComponent(search)}`
+      : `https://gutendex.com/books/`;
+
+    // Fetch from Gutendex
+    const gutendexRes = await axios.get(endpoint);
+    const apiBooks = gutendexRes.data.results;
+
+    // Fetch local overrides (e.g. books that are borrowed)
+    const localBooks = await Book.findAll({
+      where: { id: { [Op.in]: apiBooks.map(b => b.id) } },
+      include: [{ model: User, as: 'borrower', attributes: ['id', 'username'] }]
+    });
+
+    const localBookMap = {};
+    localBooks.forEach(lb => {
+      localBookMap[lb.id] = lb;
+    });
+
+    // Merge API data with local DB overrides
+    const formattedBooks = apiBooks.map(bookData => {
+      const lb = localBookMap[bookData.id];
       return {
         _id: bookData.id,
         title: bookData.title,
-        author: bookData.author,
-        genre: bookData.genre,
-        status: bookData.status,
-        dueDate: bookData.dueDate,
-        borrowedBy: bookData.borrower ? { _id: bookData.borrower.id, username: bookData.borrower.username } : null
+        author: bookData.authors && bookData.authors.length > 0 ? bookData.authors[0].name : 'Unknown Author',
+        genre: bookData.subjects && bookData.subjects.length > 0 ? bookData.subjects[0] : 'General',
+        status: lb ? lb.status : 'Available',
+        dueDate: lb ? lb.dueDate : null,
+        borrowedBy: lb && lb.borrower ? { _id: lb.borrower.id, username: lb.borrower.username } : null
       };
     });
+
     res.json(formattedBooks);
   } catch (err) {
+    console.error(err);
     res.status(500).json({ message: 'Server error', error: err.message });
   }
 });
 
-app.post('/api/books', auth, adminOnly, async (req, res) => {
+app.get('/api/books/stats', async (req, res) => {
   try {
-    const book = await Book.create(req.body);
-    res.status(201).json(book);
-  } catch (err) {
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-app.delete('/api/books/:id', auth, adminOnly, async (req, res) => {
-  try {
-    await Book.destroy({ where: { id: req.params.id } });
-    res.json({ message: 'Book deleted' });
+    const gutendexRes = await axios.get('https://gutendex.com/books/');
+    res.json({ totalBooks: gutendexRes.data.count });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -177,8 +179,23 @@ app.delete('/api/books/:id', auth, adminOnly, async (req, res) => {
 
 app.patch('/api/books/:id/borrow', auth, async (req, res) => {
   try {
-    const book = await Book.findByPk(req.params.id);
-    if (!book || book.status === 'Borrowed') return res.status(400).json({ message: 'Book not available' });
+    const bookId = parseInt(req.params.id);
+    let book = await Book.findByPk(bookId);
+
+    // If it doesn't exist locally, fetch from Gutendex and create it
+    if (!book) {
+      const gutendexRes = await axios.get(`https://gutendex.com/books/${bookId}`);
+      const apiBook = gutendexRes.data;
+      book = await Book.create({
+        id: apiBook.id,
+        title: apiBook.title,
+        author: apiBook.authors && apiBook.authors.length > 0 ? apiBook.authors[0].name : 'Unknown Author',
+        genre: apiBook.subjects && apiBook.subjects.length > 0 ? apiBook.subjects[0] : 'General',
+        status: 'Available'
+      });
+    }
+
+    if (book.status === 'Borrowed') return res.status(400).json({ message: 'Book not available' });
 
     const dueDate = new Date();
     dueDate.setDate(dueDate.getDate() + 14);

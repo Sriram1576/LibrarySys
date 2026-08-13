@@ -11,8 +11,8 @@ const Dashboard = ({ user }) => {
   const [totalBooks, setTotalBooks] = useState('--');
 
   useEffect(() => {
-    axios.get('https://gutendex.com/books/')
-      .then(res => setTotalBooks(res.data.count.toLocaleString()))
+    axios.get('http://localhost:5000/api/books/stats')
+      .then(res => setTotalBooks(res.data.totalBooks.toLocaleString()))
       .catch(() => setTotalBooks('Error'));
   }, []);
 
