@@ -20,7 +20,24 @@ const Books = ({ user }) => {
       const response = await axios.get(`http://localhost:5000/api/books?search=${encodeURIComponent(query)}`, getHeaders());
       setBooks(response.data);
     } catch (error) {
-      console.error('Error fetching books', error);
+      console.warn('Backend unavailable, falling back to direct Gutendex API...', error);
+      try {
+        const endpoint = query 
+          ? `https://gutendex.com/books/?search=${encodeURIComponent(query)}`
+          : `https://gutendex.com/books/`;
+        const gutendexRes = await axios.get(endpoint);
+        const formattedBooks = gutendexRes.data.results.map(book => ({
+          _id: book.id,
+          title: book.title,
+          author: book.authors && book.authors.length > 0 ? book.authors[0].name : 'Unknown Author',
+          status: 'Available',
+          borrowedBy: null,
+          dueDate: null
+        }));
+        setBooks(formattedBooks);
+      } catch (fallbackError) {
+        console.error('Fallback Gutendex fetch failed', fallbackError);
+      }
     } finally {
       setLoading(false);
     }

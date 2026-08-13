@@ -13,7 +13,11 @@ const Dashboard = ({ user }) => {
   useEffect(() => {
     axios.get('http://localhost:5000/api/books/stats')
       .then(res => setTotalBooks(res.data.totalBooks.toLocaleString()))
-      .catch(() => setTotalBooks('Error'));
+      .catch(() => {
+        axios.get('https://gutendex.com/books/')
+          .then(res => setTotalBooks(res.data.count.toLocaleString()))
+          .catch(() => setTotalBooks('Error'));
+      });
   }, []);
 
   return (
