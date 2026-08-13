@@ -12,10 +12,10 @@ const Dashboard = ({ user }) => {
 
   useEffect(() => {
     axios.get('http://localhost:5000/api/books/stats')
-      .then(res => setTotalBooks(res.data.totalBooks.toLocaleString()))
+      .then(res => setTotalBooks(res.data?.totalBooks || 0))
       .catch(() => {
         axios.get('https://gutendex.com/books/')
-          .then(res => setTotalBooks(res.data.count.toLocaleString()))
+          .then(res => setTotalBooks(res.data?.count || 0))
           .catch(() => setTotalBooks('Error'));
       });
   }, []);
@@ -26,7 +26,9 @@ const Dashboard = ({ user }) => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1.5rem' }}>
         <div className="card">
           <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Total Books</h3>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem' }}>{totalBooks}</p>
+          <p style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem' }}>
+            {typeof totalBooks === 'number' ? totalBooks.toLocaleString() : totalBooks}
+          </p>
         </div>
         <div className="card">
           <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Books Borrowed</h3>
@@ -147,33 +149,29 @@ function App() {
     }
   }, []);
 
-  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>;
-
-  if (!authUser) {
-    return (
-      <Router>
+  return (
+    <Router>
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>
+      ) : !authUser ? (
         <Routes>
           <Route path="*" element={<Login setAuthUser={setAuthUser} />} />
         </Routes>
-      </Router>
-    );
-  }
-
-  return (
-    <Router>
-      <div className="app-container">
-        <Sidebar setAuthUser={setAuthUser} />
-        <main className="main-content">
-          <Topbar user={authUser} />
-          <Routes>
-            <Route path="/" element={<Dashboard user={authUser} />} />
-            <Route path="/books" element={<Books user={authUser} />} />
-            <Route path="/members" element={<Members user={authUser} />} />
-            <Route path="/settings" element={<Settings user={authUser} />} />
-            <Route path="*" element={<Navigate to="/" />} />
-          </Routes>
-        </main>
-      </div>
+      ) : (
+        <div className="app-container">
+          <Sidebar setAuthUser={setAuthUser} />
+          <main className="main-content">
+            <Topbar user={authUser} />
+            <Routes>
+              <Route path="/" element={<Dashboard user={authUser} />} />
+              <Route path="/books" element={<Books user={authUser} />} />
+              <Route path="/members" element={<Members user={authUser} />} />
+              <Route path="/settings" element={<Settings user={authUser} />} />
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </main>
+        </div>
+      )}
     </Router>
   );
 }

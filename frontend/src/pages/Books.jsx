@@ -26,7 +26,7 @@ const Books = ({ user }) => {
           ? `https://gutendex.com/books/?search=${encodeURIComponent(query)}`
           : `https://gutendex.com/books/`;
         const gutendexRes = await axios.get(endpoint);
-        const formattedBooks = gutendexRes.data.results.map(book => ({
+        const formattedBooks = (gutendexRes.data?.results || []).map(book => ({
           _id: book.id,
           title: book.title,
           author: book.authors && book.authors.length > 0 ? book.authors[0].name : 'Unknown Author',
@@ -173,7 +173,7 @@ const Books = ({ user }) => {
                         <ArrowRightLeft size={14} /> Borrow
                       </button>
                     ) : (
-                      book.borrowedBy?._id === user?.id || user?.role === 'admin' ? (
+                      book.borrowedBy?._id === (user?.id || user?._id) || user?.role === 'admin' ? (
                         <button className="btn btn-primary" onClick={() => handleAction(book._id, 'return')}>
                           <ArrowRightLeft size={14} /> Return
                         </button>
