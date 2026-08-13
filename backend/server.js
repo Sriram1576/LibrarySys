@@ -188,7 +188,8 @@ app.get('/api/books', async (req, res) => {
 app.get('/api/books/stats', async (req, res) => {
   try {
     const gutendexRes = await axios.get('https://gutendex.com/books/');
-    res.json({ totalBooks: gutendexRes.data.count });
+    const borrowedBooksCount = await Book.count({ where: { status: 'Borrowed' } });
+    res.json({ totalBooks: gutendexRes.data.count, borrowedBooks: borrowedBooksCount });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }

@@ -9,13 +9,20 @@ import axios from 'axios';
 
 const Dashboard = ({ user }) => {
   const [totalBooks, setTotalBooks] = useState('--');
+  const [borrowedBooks, setBorrowedBooks] = useState('--');
 
   useEffect(() => {
     axios.get('http://localhost:5000/api/books/stats')
-      .then(res => setTotalBooks(res.data?.totalBooks || 0))
+      .then(res => {
+        setTotalBooks(res.data?.totalBooks || 0);
+        setBorrowedBooks(res.data?.borrowedBooks || 0);
+      })
       .catch(() => {
         axios.get('https://gutendex.com/books/')
-          .then(res => setTotalBooks(res.data?.count || 0))
+          .then(res => {
+            setTotalBooks(res.data?.count || 0);
+            setBorrowedBooks(0); // Gutendex fallback cannot track borrowed books
+          })
           .catch(() => setTotalBooks('Error'));
       });
   }, []);
@@ -32,7 +39,7 @@ const Dashboard = ({ user }) => {
         </div>
         <div className="card">
           <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Books Borrowed</h3>
-          <p style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem' }}>--</p>
+          <p style={{ fontSize: '2rem', fontWeight: 'bold', marginTop: '0.5rem' }}>{borrowedBooks}</p>
         </div>
         <div className="card">
           <h3 style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Active Fines</h3>

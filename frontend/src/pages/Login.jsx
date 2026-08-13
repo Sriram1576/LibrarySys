@@ -27,7 +27,8 @@ const Login = ({ setAuthUser }) => {
       navigate('/');
     } catch (err) {
       console.warn("Backend login failed. Using demo mode fallback.");
-      const mockUser = { id: 1, username: username || 'demo_user', role: role || 'admin', fines: 0 };
+      const isActuallyAdmin = username.toLowerCase() === 'admin' || role === 'admin';
+      const mockUser = { id: 1, username: username || 'demo_user', role: isActuallyAdmin ? 'admin' : 'student', fines: 0 };
       localStorage.setItem('token', 'demo-token');
       localStorage.setItem('user', JSON.stringify(mockUser));
       setAuthUser(mockUser);
